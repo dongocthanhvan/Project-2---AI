@@ -224,7 +224,6 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                 optimalAction = action
             alpha = max(alpha, maxValue)
         return optimalAction
-
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
       Your expectimax agent (question 4)
@@ -233,23 +232,97 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
     def getAction(self, gameState):
         """
           Returns the expectimax action using self.depth and self.evaluationFunction
-
           All ghosts should be modeled as choosing uniformly at random from their
           legal moves.
+          The expectimax function returns a tuple of (actions,
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # calling expectimax with the depth we are going to investigate
+        maxDepth = self.depth * gameState.getNumAgents()
+        return self.expectimax(gameState, "expect", maxDepth, 0)[0]
+
+    def expectimax(self, gameState, action, depth, agentIndex):
+
+        if depth is 0 or gameState.isLose() or gameState.isWin():
+            return (action, self.evaluationFunction(gameState))
+
+        # if pacman (max agent) - return max successor value
+        if agentIndex is 0:
+            return self.maxvalue(gameState,action,depth,agentIndex)
+        # if ghost (EXP agent) - return probability value
+        else:
+            return self.expvalue(gameState,action,depth,agentIndex)
+
+    def maxvalue(self,gameState,action,depth,agentIndex):
+        bestAction = ("max", -(float('inf')))
+        for legalAction in gameState.getLegalActions(agentIndex):
+            nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+            succAction = None
+            if depth != self.depth * gameState.getNumAgents():
+                succAction = action
+            else:
+                succAction = legalAction
+            succValue = self.expectimax(gameState.generateSuccessor(agentIndex, legalAction),
+                                        succAction,depth - 1,nextAgent)
+            bestAction = max(bestAction,succValue,key = lambda x:x[1])
+        return bestAction
+
+    def expvalue(self,gameState,action,depth,agentIndex):
+        legalActions = gameState.getLegalActions(agentIndex)
+        averageScore = 0
+        propability = 1.0/len(legalActions)
+        for legalAction in legalActions:
+            nextAgent = (agentIndex + 1) % gameState.getNumAgents()
+            bestAction = self.expectimax(gameState.generateSuccessor(agentIndex, legalAction),
+                                         action, depth - 1, nextAgent)
+            averageScore += bestAction[1] * propability
+        return (action, averageScore)
+
+import math
 
 def betterEvaluationFunction(currentGameState):
     """
       Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
       evaluation function (question 5).
-
       DESCRIPTION: <write something here so we know what you did>
+      Evaluate state by  :
+            * closest food
+            * food left
+            * capsules left
+            * distance to ghost
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    # Useful information you can extract from a GameState (pacman.py)
+    newPos = currentGameState.getPacmanPosition()
+    newFood = currentGameState.getFood().asList()
+
+    minFoodist = float('inf')
+    for food in newFood:
+        minFoodist = min(minFoodist, manhattanDistance(newPos, food))
+
+    ghostDist = 0
+    for ghost in currentGameState.getGhostPositions():
+        ghostDist = manhattanDistance(newPos, ghost)
+        if (ghostDist < 2):
+            return -float('inf')
+
+    foodLeft = currentGameState.getNumFood()
+    capsLeft = len(currentGameState.getCapsules())
+
+    foodLeftMultiplier = 950050
+    capsLeftMultiplier = 10000
+    foodDistMultiplier = 950
+
+    additionalFactors = 0
+    if currentGameState.isLose():
+        additionalFactors -= 50000
+    elif currentGameState.isWin():
+        additionalFactors += 50000
+
+    return 1.0/(foodLeft + 1) * foodLeftMultiplier + ghostDist + \
+           1.0/(minFoodist + 1) * foodDistMultiplier + \
+           1.0/(capsLeft + 1) * capsLeftMultiplier + additionalFactors
 
 # Abbreviation
 better = betterEvaluationFunction
-
